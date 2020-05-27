@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Google Map Direction Render Alternate Route How To Select Desired Path</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        #map {
+            height: 90%;
+        }
+    </style>
+ 
+</head>
+<body>
+    <form id="form">
+        <input id="from" placeholder="From" value="start" />
+        <input id="to" placeholder="To" value="end" />
+        <input type="submit" value="GO"  />
+    </form>
+
+    <div id="map"></div>
+    <div id="info">
+    </div>
+    <script type="text/javascript" src="https://maps.google.com/maps/api/js?key=AIzaSyDIJ9XX2ZvRKCJcFRrl-lRanEtFUow4piM&libraries=geometry"></script>
+    <script>
+
+        var map;
+        var directionsService;
+        var polylines = [];
+        var shadows = [];
+        var data = [];
+        var infowindow;
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center:  {lng: 72.88195875, lat: 19.18851899},
+                zoom: 12,
+               // mapTypeId: 'terrain'
+            });
+
+ // Store old reference
+const appendChild = Element.prototype.appendChild;
+
+// All services to catch
+const urlCatchers = [
+  "/AuthenticationService.Authenticate?",
+  "/QuotaService.RecordEvent?"
+];
+
+// Google Map is using JSONP.
+// So we only need to detect the services removing access and disabling them by not
+// inserting them inside the DOM
+Element.prototype.appendChild = function (element) {
+  const isGMapScript = element.tagName === 'SCRIPT' && /maps\.googleapis\.com/i.test(element.src);
+  const isGMapAccessScript = isGMapScript && urlCatchers.some(url => element.src.includes(url));
+
+  if (!isGMapAccessScript) {
+    return appendChild.call(this, element);
+  }
+
+  // Extract the callback to call it with success data
+  // Only needed if you actually want to use Autocomplete/SearchBox API
+  //const callback = element.src.split(/.*callback=([^\&]+)/, 2).pop();
+  //const [a, b] = callback.split('.');
+  //window[a][b]([1, null, 0, null, null, [1]]);
+
+  // Returns the element to be compliant with the appendChild API
+  return element;
+};
+
+            google.maps.event.addDomListener(document.getElementById('form'), 'submit', function(e) {
+                calcRoute(
+                    document.getElementById('from').value,
+                    document.getElementById('to').value
+                );
+                // prevent the form from really submitting
+                e.preventDefault();
+                return false;
+            });
+            directionsService = new google.maps.DirectionsService();
+            // get the bounds of the polyline
+           google.maps.Polyline.prototype.getBounds = function(startBounds) {
+                if(startBounds) {
+                    var bounds = startBounds;
+                }
+                else {
+                    var bounds = new google.maps.LatLngBounds();
+                }
+                this.getPath().forEach(function(item, index) {
+                    bounds.extend(new google.maps.LatLng(item.lat(), item.lng()));
+                });
+                return bounds;
+            };
+
+
+      for (var city in citymap) {
+          // Add the circle for this city to the map.
+          var cityCircle = new google.maps.Circle({
+            strokeColor: '#FF0000',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#FF0000',
+            fillOpacity: 0.35,
+            map: map,
+            center: citymap[city].center,
+            radius: Math.sqrt(citymap[city].population) * 100
+          });
+        }
+
+         for (var city in citymaps) {
+          // Add the circle for this city to the map.
+          var cityCircle = new google.maps.Circle({
+            strokeColor: '#008000',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: '#008000',
+            fillOpacity: 0.35,
+            map: map,
+            center: citymaps[city].center,
+            radius: Math.sqrt(citymaps[city].population) * 100
+          });
+        }
+
+         for (var city in citymapss) {
+          // Add the circle for this city to the map.
+          var cityCircle = new google.maps.Circle({
+            strokeColor: 'orange',
+            strokeOpacity: 0.8,
+            strokeWeight: 2,
+            fillColor: 'orange',
+            fillOpacity: 0.35,
+            map: map,
+            center: citymapss[city].center,
+            radius: Math.sqrt(citymapss[city].population) * 100,
+          });
+        }
+
+           google.maps.event.addListener(cityCircle, 'click', function(ev){
+    infowindow.setPosition(cityCircle.getCenter());
+    infowindow.open(map);
+  });
+
+
+
+
+        }
+        // this function calculates multiple suggested routes.
+        // We will draw 3 (broad stroke) suggested routs in grey.  These are broad to click on them easier.
+        // We duplicate these routes with a thin, colored line; only route 0 is shown.
+        function calcRoute(start, end) {
+            var request = {
+                origin: start,
+                destination: end,
+                provideRouteAlternatives: true,
+                unitSystem: google.maps.UnitSystem.METRIC,
+                travelMode: google.maps.TravelMode['DRIVING']
+            };
+            directionsService.route(request, function(response, status) {
+                // clear former polylines
+                for(var j in  polylines ) {
+                    polylines[j].setMap(null);
+                    shadows[j].setMap(null);
+                }
+                polylines = [];
+                shadows = [];
+                data = [];
+                if (status == google.maps.DirectionsStatus.OK) {
+                    var bounds = new google.maps.LatLngBounds();
+                    for(var i in response.routes) {
+                        // let's make the first suggestion highlighted;
+                        var hide = (i==0 ? false : true);
+                        var shadow = drawPolylineShadow(response.routes[i].overview_path, '#666666');
+                        var line = drawPolyline(response.routes[i].overview_path, '#0000ff', hide);
+                        polylines.push(line);
+                       // console.log(line);
+                    //  console.log(shadows);
+                  //  console.log(response.routes[i].overview_path);
+                        shadows.push(shadow);
+                        // let's add some data for the infoWindow
+                        data.push({
+                            distance: response.routes[i].legs[0].distance,
+                            duration: response.routes[i].legs[0].duration,
+                            end_address: response.routes[i].legs[0].end_address,
+                            start_address: response.routes[i].legs[0].start_address,
+                            end_location: response.routes[i].legs[0].end_location,
+                            start_location: response.routes[i].legs[0].start_location
+                        });
+                        bounds = line.getBounds(bounds);
+                        google.maps.event.addListener(shadow, 'click', function(e) {
+                            // detect which route was clicked on
+                            var index = shadows.indexOf(this);
+                            highlightRoute(index, e);
+                          //  console.log(index);
+                        });
+
+                    }
+                    map.fitBounds(bounds);
+                }
+            });
+        }
+        // this makes one of the colored routes visible.
+        function highlightRoute(index, e) {
+            for(var j in  polylines ) {
+                if(j==index) {
+                    //var color = '#0000ff';
+                    polylines[j].setMap(map);
+                  
+                    var contentString =
+                        '<span>'+ data[j].distance.text +'</span><br/>'+
+                        '<span>'+ data[j].duration.text +'</span><br/>'+
+                        '<span>route: '+ j +'</span><br/>'+
+                        //'From: <span>'+ data[j].start_address +'</span><br/>'+
+                        //'To: <span>'+ data[j].end_address +'</span><br/>'+
+                        '';
+                    if(e) {
+                       var position = new google.maps.LatLng(e.latLng.lat(), e.latLng.lng());
+                        // it may be needed to close the previous infoWindow
+                        if(infowindow) {
+                            infowindow.close();
+                            infowindow = null;
+                        }
+                        infowindow = new google.maps.InfoWindow({
+                            content: contentString,
+                            position: position,
+                            map: map
+                        });
+                        //infowindow.open(map, polylines[j]);
+                    }
+                }
+                else {
+                    polylines[j].setMap(null);
+                }
+            }
+        }
+        // returns a polyline.
+        // if hide is set to true, the line is not put on the map
+      
+        function drawPolyline(path, color, hide) {
+            var line = new google.maps.Polyline({
+                path: path,
+                strokeColor: color,
+                strokeOpacity: 0.9,
+                strokeWeight: 3
+            });
+           //  console.log(path);
+            if(! hide) {
+                line.setMap(map);
+            }
+
+            return line;
+        }
+    
+        function drawPolylineShadow(path, color, hide) {
+            var line = new google.maps.Polyline({
+                path: path,
+                strokeColor: color,
+                strokeOpacity: 0.4,
+                strokeWeight: 7
+            });
+           // console.log(path);
+            if(! hide) {
+                line.setMap(map);
+            }
+            return line;
+        }
+        google.maps.event.addDomListener(window, 'load', initMap);
+
+     
+ 
+              var citymap = {
+        chicago: {
+          center: {lng: 72.89995875, lat: 19.08951899}, 
+          population: 70
+        },
+        newyork: {
+          center: {lng: 72.84206299, lat: 19.08951899}, 
+          population: 70
+        },
+        newyorks: {
+          center: {lng: 72.92506299, lat: 19.04951899}, 
+          population: 70
+        }
+        // losangeles: {
+        //   center: {lng: 72.80536652, lat: 20.49703014}, 
+        //   population: 50000
+        // },
+        //  newyork: {
+        //   center: {lng: 74.40206299, lat: 20.05846992}, 
+        //   population: 50000
+        // },
+        // losangeles: {
+        //   center: {lng: 72.80536652, lat: 20.89703014}, 
+        //   population: 50000
+        // }
+      };
+
+      // right top
+       var citymaps = {
+        vancouver: {
+          center: {lng: 72.88985875, lat: 19.06751899}, 
+          population: 70
+        }
+        //  vancouv: {
+        //   center: {lng: 73.7507, lat: 20.5786},
+        //   population: 50000
+        // },
+        //  vancouv: {
+        //   center: {lng: 73.2507, lat: 20.8786},
+        //   population: 50000
+        // }
+      };
+       var citymapss = {
+        //  vancouv: {
+        //   center: {lng: 72.8895875, lat: 19.10051899},
+        //   population: 70
+        // },
+         vancouv: {
+          center: {lng: 72.88995875, lat: 19.11151899},
+          population: 70
+        },
+        newyork: {
+          center: {lng: 72.86506299, lat: 19.08951899}, 
+          population: 70
+        },
+        newyorks: {
+          center: {lng: 72.86506299, lat: 19.02951899}, 
+          population: 70
+        }
+      };
+    </script>
+       <script type="text/javascript" src="https://maps.googleapis.com/maps/api/directions/json?
+origin=mumbai&destination=iit bombay
+&key=AIzaSyDIJ9XX2ZvRKCJcFRrl-lRanEtFUow4piM&avoid=highways
+&mode=bicycling"></script>
+</body>
+</html> 
+
